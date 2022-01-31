@@ -1,0 +1,12 @@
+{
+  "name": "Jira Ticket Status Webpack",
+  "id": "1068470422233765407",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "figjam"],
+  "relaunchButtons": [
+    {"command": "update", "name": "Update Selected Jira Ticket(s)", "multipleSelection": true},
+    {"command": "update_all", "name": "Update All Jira Tickets", "multipleSelection": false}
+  ]
+}
