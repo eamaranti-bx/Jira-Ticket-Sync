@@ -6,7 +6,15 @@ if (!DOCUMENT_NODE.getRelaunchData().update_all) {
   DOCUMENT_NODE.setRelaunchData({ update_all: 'Update all Jira tickets on this page.' })
 }
 
-const COMPANY_NAME = "lukasbittner"
+const COMPANY_NAME_KEY: string = "COMPANY_NAME"
+const USERNAME_KEY: string = "USERNAME"
+const PASSWORD_KEY: string = "PASSWORD"
+const ISSUE_ID_KEY: string = "ISSUE_ID"
+
+var company_name: string
+var username: string
+var password: string
+var issueId: string
 
 const FONT_REG = { family: "Work Sans", style: "Regular" }
 const FONT_MED = { family: "Work Sans", style: "Medium" }
@@ -16,6 +24,7 @@ function getStatus(data) { return data.fields.status.name }
 function getTitle(data) { return data.fields.summary }
 function getIssueId(data) { return data.key }
 function getChangeDate(data) { return data.fields.statuscategorychangedate }
+
 
 // ticketdata.fields.assignee.displayName
 // ticketdata.fields.assignee.avatarUrls
@@ -54,14 +63,22 @@ if (figma.command === 'update') {
   figma.showUI(__html__, { visible: false })
   var hasFailed = updateAll()
   console.log(hasFailed)
-  if(hasFailed){
+  if (hasFailed) {
     figma.closePlugin()
   }
 } else {
   figma.showUI(__html__, { width: 300, height: 350 });
 }
 
-
+async function sendData() {
+  company_name = await getAuthorizationInfo(COMPANY_NAME_KEY)
+  username = await getAuthorizationInfo(USERNAME_KEY)
+  password = await getAuthorizationInfo(PASSWORD_KEY)
+  issueId = await getAuthorizationInfo(ISSUE_ID_KEY)
+  console.log("Recovered names", username, password, company_name)
+  figma.ui.postMessage({ company_name: company_name, username: username, password: password, issueId: issueId, type: 'setUsername' })
+}
+sendData()
 
 // All the functions that can be started from the UI
 figma.ui.onmessage = async (msg) => {
@@ -85,6 +102,11 @@ figma.ui.onmessage = async (msg) => {
   // Called to get selected Jira Ticker Header instances and updates them one by one. 
   if (msg.type === 'update-selected') {
     updateSelection()
+  }
+
+  if (msg.type === 'authorization-detail-changed') {
+    console.log("Message in Sanbox", msg.data)
+    setAuthorizationInfo(msg.key, msg.data)
   }
 
   // Updates instances based on the received ticket data.
@@ -124,13 +146,28 @@ figma.ui.onmessage = async (msg) => {
 
 }
 
+// Saves authorization details in client storage
+async function setAuthorizationInfo(key: string, value: string) { 
+  await figma.clientStorage.setAsync(key, value) 
+}
+
+// Get authorization details from client storage
+async function getAuthorizationInfo(key: string) {
+  var valueSaved = await figma.clientStorage.getAsync(key)
+  if (!valueSaved) valueSaved = "Test"
+  console.log("Restored value", valueSaved)
+  return valueSaved
+}
+
+
+
 // Get all elements on page and start update process
 function updateAll() {
   const nodes = figma.currentPage.findAllWithCriteria({
     types: ['INSTANCE']
   })
   const nodesFiltered = nodes.filter(node => node.name === COMPONENT_SET_NAME);
-  if(nodesFiltered.length == 0){
+  if (nodesFiltered.length == 0) {
     figma.notify(`No instances named '${COMPONENT_SET_NAME}' found on this page.`)
     let isFailed = true
     return isFailed
@@ -142,7 +179,7 @@ function updateAll() {
 // Get selection and start update process
 function updateSelection() {
   let selection = figma.currentPage.selection
-  if(selection.length == 0){
+  if (selection.length == 0) {
     figma.notify(`Nothing selected.`)
   } else {
     getDataForMultiple(selection)
@@ -337,7 +374,7 @@ async function updateVariant(instance: InstanceNode, ticketData) {
   if (titleTxt) {
     await figma.loadFontAsync(titleTxt.fontName as FontName)
     titleTxt.characters = getTitle(ticketData)
-    titleTxt.hyperlink = { type: "URL", value: `https://${COMPANY_NAME}.atlassian.net/browse/${ticketData.key}` }
+    titleTxt.hyperlink = { type: "URL", value: `https://${company_name}.atlassian.net/browse/${ticketData.key}` }
   } else {
     figma.notify("Could not find text element named '" + ISSUE_TITLE_NAME + "'.")
   }

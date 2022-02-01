@@ -3,7 +3,7 @@ body {
   text-align: center;
   margin: 20px;
 }
-button {
+/* button {
   border-radius: 5px;
   background: white;
   color: black;
@@ -12,8 +12,8 @@ button {
   margin: 0 5px;
   box-shadow: inset 0 0 0 1px black;
   outline: none;
-}
-#create-new-ticket {
+} */
+/* #create-new-ticket {
   box-shadow: none;
   background: #18A0FB;
   color: white;
@@ -26,4 +26,4 @@ input {
 input:hover { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
 button:focus { box-shadow: inset 0 0 0 2px #18A0FB; }
 #create:focus { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3); }
-input:focus { box-shadow: inset 0 0 0 2px #18A0FB; }
+input:focus { box-shadow: inset 0 0 0 2px #18A0FB; } */
