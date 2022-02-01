@@ -1,5 +1,4 @@
 const FIREBASE_URL = "http://localhost:5001/figma-jira-plugin-function/us-central1/getIssue"
-console.log("FETCH DATA FILE OPENED")
 
 // Fetch ticket info from Jira (via Firebase function)
 // If fetching fails for some reason, return a JSON file with error data

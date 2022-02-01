@@ -6,6 +6,10 @@ if (!DOCUMENT_NODE.getRelaunchData().update_all) {
   DOCUMENT_NODE.setRelaunchData({ update_all: 'Update all Jira tickets on this page.' })
 }
 
+const WINDOW_WIDTH = 250
+const WINDOW_HEIGHT_BIG = 466
+const WINDOW_HEIGHT_SMALL = 200
+
 const COMPANY_NAME_KEY: string = "COMPANY_NAME"
 const USERNAME_KEY: string = "USERNAME"
 const PASSWORD_KEY: string = "PASSWORD"
@@ -67,7 +71,7 @@ if (figma.command === 'update') {
     figma.closePlugin()
   }
 } else {
-  figma.showUI(__html__, { width: 300, height: 350 });
+  figma.showUI(__html__, { width: WINDOW_WIDTH, height: WINDOW_HEIGHT_SMALL });
 }
 
 async function sendData() {
@@ -108,6 +112,12 @@ figma.ui.onmessage = async (msg) => {
     console.log("Message in Sanbox", msg.data)
     setAuthorizationInfo(msg.key, msg.data)
   }
+
+  if (msg.type === 'resize-ui') {
+    console.log("Resize", msg.big_size)
+    msg.big_size ? figma.ui.resize(WINDOW_WIDTH, WINDOW_HEIGHT_BIG) : figma.ui.resize(WINDOW_WIDTH, WINDOW_HEIGHT_SMALL)
+  }
+
 
   // Updates instances based on the received ticket data.
   if (msg.type === 'ticketDataSent') {
@@ -154,7 +164,7 @@ async function setAuthorizationInfo(key: string, value: string) {
 // Get authorization details from client storage
 async function getAuthorizationInfo(key: string) {
   var valueSaved = await figma.clientStorage.getAsync(key)
-  if (!valueSaved) valueSaved = "Test"
+  if (!valueSaved) valueSaved = ""
   console.log("Restored value", valueSaved)
   return valueSaved
 }
