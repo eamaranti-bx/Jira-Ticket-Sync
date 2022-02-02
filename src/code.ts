@@ -29,6 +29,7 @@ function getTitle(data) { return data.fields.summary }
 function getIssueId(data) { return data.key }
 function getChangeDate(data) { return data.fields.statuscategorychangedate }
 
+var nextTicketOffset = 0
 
 // ticketdata.fields.assignee.displayName
 // ticketdata.fields.assignee.avatarUrls
@@ -80,7 +81,7 @@ async function sendData() {
   password = await getAuthorizationInfo(PASSWORD_KEY)
   issueId = await getAuthorizationInfo(ISSUE_ID_KEY)
   console.log("Recovered names", username, password, company_name)
-  figma.ui.postMessage({ company_name: company_name, username: username, password: password, issueId: issueId, type: 'setUsername' })
+  figma.ui.postMessage({ company_name: company_name, username: username, password: password, issueId: issueId, type: 'setAuthorizationVariables' })
 }
 sendData()
 
@@ -93,9 +94,10 @@ figma.ui.onmessage = async (msg) => {
   }
 
   // Called to create a new instance of a component (based on the issueId entered in the UI)
-  if (msg.type === 'create-new-ticket') {
+  if (msg.type === 'create-new-ticket' && checkFetchSuccess(msg.data)) {
     await referenceTicketComponentSet()
-    await createTicketInstance(msg.data[0])
+    await createTicketInstance(msg.data[0], msg.issueId)
+
   }
 
   // Called to get all Jira Ticker Header instances and updates them one by one. 
@@ -109,18 +111,20 @@ figma.ui.onmessage = async (msg) => {
   }
 
   if (msg.type === 'authorization-detail-changed') {
-    console.log("Message in Sanbox", msg.data)
     setAuthorizationInfo(msg.key, msg.data)
   }
 
   if (msg.type === 'resize-ui') {
-    console.log("Resize", msg.big_size)
     msg.big_size ? figma.ui.resize(WINDOW_WIDTH, WINDOW_HEIGHT_BIG) : figma.ui.resize(WINDOW_WIDTH, WINDOW_HEIGHT_SMALL)
+  }
+
+  if (msg.type === 'create-visual-bell') {
+    figma.notify(msg.message)
   }
 
 
   // Updates instances based on the received ticket data.
-  if (msg.type === 'ticketDataSent') {
+  if (msg.type === 'ticketDataSent' && checkFetchSuccess(msg.data)) {
     var nodeIds = msg.nodeIds
     var numberOfNodes = nodeIds.length
     var numberOfSuccesses = 0
@@ -128,7 +132,7 @@ figma.ui.onmessage = async (msg) => {
 
     for (let i = 0; i < numberOfNodes; i++) {
       const id = nodeIds[i];
-      let ticketData = checkTicketDataReponse(msg.data[i])
+      let ticketData = checkTicketDataReponse(msg.data[i], msg.issueIds[i])
       let node = figma.getNodeById(id) as InstanceNode
       // console.log(`Updating node ${i}.`, node, ticketData)
       console.log("HERE", ticketData)
@@ -153,12 +157,11 @@ figma.ui.onmessage = async (msg) => {
       figma.notify(message)
     }
   }
-
 }
 
 // Saves authorization details in client storage
-async function setAuthorizationInfo(key: string, value: string) { 
-  await figma.clientStorage.setAsync(key, value) 
+async function setAuthorizationInfo(key: string, value: string) {
+  await figma.clientStorage.setAsync(key, value)
 }
 
 // Get authorization details from client storage
@@ -222,11 +225,11 @@ async function getDataForMultiple(instances) {
 
 
 // Create instances of the main ticket component and replaces the content with data of the actual Jira ticket
-async function createTicketInstance(ticketData) {
+async function createTicketInstance(ticketData, issueId) {
   // Create an instance and update it to the correct status
   let ticketVariant = ticketComponent.defaultVariant
   let ticketInstance = ticketVariant.createInstance()
-  ticketData = checkTicketDataReponse(ticketData)
+  ticketData = checkTicketDataReponse(ticketData, issueId)
   ticketInstance = await updateVariant(ticketInstance, ticketData)
 
   // Update ID
@@ -239,8 +242,9 @@ async function createTicketInstance(ticketData) {
     figma.notify("Could not find text element named '" + ISSUE_ID_NAME + "'.")
   }
 
-  ticketInstance.x = figma.viewport.center.x
-  ticketInstance.y = figma.viewport.center.y
+  ticketInstance.x = figma.viewport.center.x + nextTicketOffset
+  ticketInstance.y = figma.viewport.center.y + nextTicketOffset
+  nextTicketOffset = (nextTicketOffset + 50) % 500
   figma.currentPage.selection = [ticketInstance]
 }
 
@@ -431,34 +435,80 @@ function hexToRgb(hex) {
   return { r: r / 255, g: g / 255, b: b / 255 }
 }
 
-// Checks if the received ticket data is valid or whether an error occured
-function checkTicketDataReponse(ticketData: any) {
-  var checkedData;
-  if (ticketData === undefined) {
-    figma.notify("Could not get data. There seems to be no connection to the server.")
-    throw new Error("Could not get data. There seems to be no connection to the server.")
+
+// Checks if fetching data was successful at all 
+function checkFetchSuccess(data) {
+  var isSuccess = false
+  // Can this even happen?
+  if (!data) {
+    figma.notify("Something went wrong.")
+    throw new Error("Something went wrong." + data)
   }
-  else if (ticketData && ticketData.key) { // If the JSON has a key field, the data is valid
+  // No connection to Firebase
+  else if (data.type == "Error") {
+    figma.notify("Could not get data. There seems to be no connection to the server.")
+    throw new Error(data.message)
+  }
+  // Wrong e-mail
+  else if (data[0].message == "Client must be authenticated to access this resource.") {
+    figma.notify("You have entered an invalid e-mail.")
+    throw new Error(data.message)
+  }
+  // Wrong company name
+  else if (data[0].errorMessage == "Site temporarily unavailable") {
+    // checkedData = createErrorDataJSON(ticketData.errorMessage)
+    figma.notify("Company name does not exist. Enter the domain name that appears in your Jira link: my-company(.atlassian.net)")
+    throw new Error(data[0].errorMessage)
+  }
+  // Wrong password
+  else if (data[0][0]) {
+    // checkedData = createErrorDataJSON(ticketData.errorMessage)
+    figma.notify("Could not access data. Your Jira API Token seems to be invalid.")
+    throw new Error(data[0][0])
+  }
+  // Else, it was probably successful
+  else {
+    isSuccess = true
+  }
+  console.log("Success", isSuccess)
+  return isSuccess
+}
+
+// Checks if per received ticket data if the fetching was successful
+function checkTicketDataReponse(ticketData, issueId) {
+  console.log("Ticket data to be checked:", ticketData)
+  var checkedData;
+  // If the JSON has a key field, the data is valid
+  if (ticketData && ticketData.key) {
     checkedData = ticketData
-  } else {
-    if (ticketData.errorMessages) {
-      checkedData = createErrorDataJSON(ticketData.errorMessages[0])
-    } else if (ticketData.message) {
-      checkedData = createErrorDataJSON(ticketData.message)
-    } else {
-      figma.notify("Could not get data. There seems to be no connection to the server.")
-      throw new Error("Could not get data. There seems to be no connection to the server.")
-    }
+  } 
+  // ID does not exist
+  else if (ticketData.errorMessages == "The issue no longer exists.") {
+    checkedData = createErrorDataJSON("Error: Ticket ID does not exist.", issueId)
+    figma.notify("Ticket ID does not exist.")
+  } 
+  // ID has invalid format
+  else if (ticketData.errorMessages == "Issue key is in an invalid format.") {
+    checkedData = createErrorDataJSON("Error: Ticket ID is in an invalid format.", issueId)
+    figma.notify("Ticket ID is in an invalid format.")
+  } 
+  // Other
+  else {
+    checkedData = createErrorDataJSON("Error: An unexpected error occured.", issueId)
+    figma.notify("Unexpected error.")
+    console.error("Unexpected error.", ticketData)
+    // throw new Error(ticketData.message)
   }
   return checkedData
 }
 
+
 // Create a error variable that has the same main fields as the Jira Ticket variable. 
 // This will be used the fill the ticket data with the error message.
-function createErrorDataJSON(message) {
+function createErrorDataJSON(message, issueId) {
   var today = new Date().toISOString();
   var errorData = {
-    "key": "ERROR",
+    "key": issueId,
     "fields": {
       "summary": message,
       "status": {

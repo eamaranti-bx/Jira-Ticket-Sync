@@ -2,10 +2,10 @@ const FIREBASE_URL = "http://localhost:5001/figma-jira-plugin-function/us-centra
 
 // Fetch ticket info from Jira (via Firebase function)
 // If fetching fails for some reason, return a JSON file with error data
-// Return a JSON array
+// Returns a JSON array
 export async function getTicketDataFromJira(issueIds, basicAuth, companyName) {
+  
   var jsonArray
-  console.log(basicAuth)
   var config = {
     method: 'POST',
     body: JSON.stringify({
@@ -17,22 +17,25 @@ export async function getTicketDataFromJira(issueIds, basicAuth, companyName) {
 
   await fetchWithTimeout(FIREBASE_URL, config)
     .then((response: Response) => {
-      // return response
       return response.json()
     })
     .then((data) => {
-      // console.log("Arrived back: ", data)
       jsonArray = data
     })
     .catch((error: Error) => {
       console.error('Could not access Firebase.', error.message)
-      jsonArray = issueIds
+      const responseError = {
+        type: 'Error',
+        message: error.message || 'Something went wrong',
+      };
+      console.log(responseError)
+      // jsonArray = issueIds
+      jsonArray = responseError
     })
-
-  // console.log("JSON", jsonArray)
   return jsonArray
 }
 
+// Adds a timeout to the fetch operation
 function fetchWithTimeout(url, options, timeout = 10000) {
   return Promise.race([
     fetch(url, options),
