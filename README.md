@@ -11,8 +11,14 @@ Add your Jira tickets directly in Figma. Make changes to your ticket in the Jira
 
 If you have ideas for new features, feel free to contact me on bittner.lukas@gmail.com. I am always happy to collaborate!
 
+<<<<<<< Updated upstream
 The plugin is developed using Webpack and React.  
 It is accessing the Jira API via a Firebase function. Here is the link to the [Firebase code](https://github.com/lukasbittner/firebase-function-figma).
+=======
+The plugin is developed using Webpack and React. 
+It is accessing the Jira API via a Firebase function. Here is the link to the [Firebase code](https://github.com/lukasbittner/firebase-function-figma).  
+The UI components are based on the React library made by [Alexandr Tovmach](https://github.com/alexandrtovmach/react-figma-plugin-ds).
+>>>>>>> Stashed changes
 
 ## Compile
 

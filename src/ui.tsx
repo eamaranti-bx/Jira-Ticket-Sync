@@ -75,9 +75,7 @@ function App() {
       setIssueIdError("")
       const basicAuth = Buffer.from(username + ':' + password).toString('base64')
       var ticketDataArray = await getTicketDataFromJira([issueId], basicAuth, companyName)
-      console.log("Array", ticketDataArray)
-      parent.postMessage({ pluginMessage: { type: 'create-new-ticket', data: ticketDataArray, issueId: issueId } }, '*')
-      console.log(issueId.replace(/[1-9]*$/,""))
+      parent.postMessage({ pluginMessage: { type: 'create-new-ticket', data: ticketDataArray, issueIds: [issueId] } }, '*')
       setIssueId(issueId.replace(/[1-9]*$/,""))
     }
   }
@@ -113,7 +111,6 @@ function App() {
 
   // Saves the current field input in the sandbox
   const onInputFieldChanged = (value, key) => {
-    console.log(key, value)
     if (key === ISSUE_ID_KEY) setIssueId(value)
     // else if (key === COMPANY_NAME_KEY) setCompanyName(value)
     // else if (key === USERNAME_KEY) setUsername(value)
@@ -133,17 +130,14 @@ function App() {
 
     var allCredentialsProvided = true
     if (companyName === "") {
-      console.log(1)
-      setCompanyNameError("Please enter a company name.")
+      setCompanyNameError("Please enter a company domain name.")
       allCredentialsProvided = false
     }
     if (username === "") {
-      console.log(2)
       setUsernameError("Please enter a username.")
       allCredentialsProvided = false
     }
     if (password === "") {
-      console.log(3)
       setPasswordError("Please enter an API token.")
       allCredentialsProvided = false
     }
@@ -153,10 +147,10 @@ function App() {
       setUsername(username)
       setPassword(password)
 
-      parent.postMessage({ pluginMessage: { type: 'create-visual-bell', message: "Changes saved." } }, '*')
       parent.postMessage({ pluginMessage: { type: 'authorization-detail-changed', key: COMPANY_NAME_KEY, data: companyName } }, '*')
       parent.postMessage({ pluginMessage: { type: 'authorization-detail-changed', key: USERNAME_KEY, data: username } }, '*')
       parent.postMessage({ pluginMessage: { type: 'authorization-detail-changed', key: PASSWORD_KEY, data: password } }, '*')
+      parent.postMessage({ pluginMessage: { type: 'create-visual-bell', message: "Saved." } }, '*')
 
       setShowAuthForOnboarding(false)
       switchView()
@@ -176,7 +170,6 @@ function App() {
       // Authorization view
       <div className='vertical padding-small'>
         <div className='section-title-with-icon'>
-          {/* {!showAuthForOnboarding && <Icon color="black8" name="back" onClick={switchView} />} */}
           <Title level="h2" size="" weight="bold">Authorization</Title>
         </div>
         <div className='tip'>
@@ -184,11 +177,10 @@ function App() {
         </div>
         <div className='row'>
           <div>
-            <Text>Company Name</Text>
+            <Text>Company Domain Name</Text>
             <div className="input">
               <input ref={companyNameInput} type="input" className="input__field" defaultValue={companyName} placeholder="e.g. parkside-interactive" />
             </div>
-            {/* <Input defaultValue={company_name} placeholder="e.g. parkside-interactive" onChange={(input) => onInputFieldChanged(input, COMPANY_NAME_KEY)} /> */}
             {companyNameError.length > 0 &&
               <Text className="error-text">{companyNameError}</Text>
             }
@@ -201,7 +193,6 @@ function App() {
             <div className="input">
               <input ref={usernameInput} type="input" className="input__field" defaultValue={username} placeholder="e.g. jeff@google.com" />
             </div>
-            {/* <Input defaultValue={username} placeholder="e.g. jeff@google.com" onChange={(input) => onInputFieldChanged(input, USERNAME_KEY)} /> */}
             {usernameError.length > 0 &&
               <Text className="error-text">{usernameError}</Text>
             }
@@ -215,7 +206,6 @@ function App() {
               <div className="input">
                 <input ref={passwordInput} type={showInput ? 'text' : 'password'} className="input__field stretch" defaultValue={password} placeholder="e.g. A90SjdsS8MKLASsa9767" />
               </div>
-              {/* <Input className='stretch' type={showInput ? 'text' : 'password'} name="password" defaultValue={password} placeholder="API token" onChange={(input) => onInputFieldChanged(input, PASSWORD_KEY)} /> */}
               {showInput ?
                 <Icon color="black8" name="visible" onClick={switchShowInput} />
                 : <Icon color="black8" name="hidden" onClick={switchShowInput} />}
@@ -228,8 +218,8 @@ function App() {
         </div>
         <div className='horizontal align-right padding-small'>
           {showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Next</Button>}
-          {!showAuthForOnboarding && <Button className="" isSecondary id="create-component" onClick={function _() { switchView() }}>Discard</Button>}
-          {!showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Save</Button>}
+          {!showAuthForOnboarding && <Button className="" isSecondary id="create-component" onClick={function _() { switchView() }}>Back</Button>}
+          {!showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Save Changes</Button>}
         </div>
       </div>
       :
@@ -243,10 +233,9 @@ function App() {
           <div className='horizontal padding-small'>
             <div>
               <div className="input">
-                <input type="input" className="input__field" value={issueId} placeholder="Ticket ID (e.g. PR-3)"
+                <input type="input" autoFocus className="input__field" value={issueId} placeholder="Ticket ID (e.g. PR-3)"
                   onKeyDown={handleKeyDown} onChange={(event) => { onInputFieldChanged(event.target.value, ISSUE_ID_KEY) }} />
               </div>
-              {/* <Input className="" id="" defaultValue={issueId} placeholder="Ticket ID (e.g. PR-3)" onChange={(input) => onInputFieldChanged(input, ISSUE_ID_KEY)} /> */}
               {issueIdError.length > 0 &&
                 <Text className="error-text">{issueIdError}</Text>
               }
@@ -256,9 +245,11 @@ function App() {
         </div>
         <div className='vertical padding-small'>
           <Title level="h2" size="" weight="bold">Update</Title>
-          <div className='horizontal padding-small'>
-            <Button className="" isSecondary id="update-selected" onClick={onUpdateSelected}>Update Selected</Button>
-            <Button className="" isSecondary id="update-all" onClick={onUpdateAll}>Update All</Button>
+          <div className='padding-small'>
+            <Button className="margin-small" isSecondary id="update-selected" onClick={onUpdateSelected}>Update Selected</Button>
+            <Button className="margin-small" isSecondary id="update-page" onClick={onUpdateAll}>Update Page</Button>
+            <Button className="margin-small" isSecondary id="update-all" onClick={onUpdateAll}>Update All in Document</Button>
+            {/* <Button className="margin-small" isSecondary id="create-component" onClick={onCreateComponent}>Create new</Button> */}
           </div>
         </div>
       </div>
