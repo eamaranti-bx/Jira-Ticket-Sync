@@ -24,6 +24,11 @@
     padding: 8px
 }
 
+.padding-lr-8 {
+    padding-left: 8;
+    padding-right: 8;
+}
+
 .divider {
     border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, .1));
 }
@@ -74,4 +79,16 @@ button {
 
 .error-text {
     color: var(--red)
+}
+
+.black3 {
+    color: var(--black3)
+}
+
+.sticky {
+    padding: 4;
+    background-color: var(--white);
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid var(--color-border, rgba(0, 0, 0, .1));
 }

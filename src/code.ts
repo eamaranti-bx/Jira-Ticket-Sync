@@ -5,7 +5,7 @@ const DOCUMENT_NODE = figma.currentPage.parent
 DOCUMENT_NODE.setRelaunchData({ update_page: '', update_all: '' })
 
 const WINDOW_WIDTH = 250
-const WINDOW_HEIGHT_BIG = 670
+const WINDOW_HEIGHT_BIG = 650
 const WINDOW_HEIGHT_SMALL = 308
 
 const COMPANY_NAME_KEY: string = "COMPANY_NAME"
@@ -63,7 +63,7 @@ const VARIANT_COLOR_ERROR = hexToRgb('FFD9D9')
 var ticketComponent
 
 // Don't show UI if relaunch buttons are run
-if (figma.command === 'update') {
+if (figma.command === 'update_selection') {
   updateWithoutUI("selection")
 } else if (figma.command === 'update_all') {
   updateWithoutUI("all")
@@ -82,8 +82,10 @@ referenceTicketComponentSet()
 async function updateWithoutUI(type) {
   figma.showUI(__html__, { visible: false })
   await sendData()
+  console.log(1)
   var hasFailed = requestUpdateForTickets(type)
-  if (hasFailed && (type === "all" || type === "page")) {
+  console.log(2)
+  if (hasFailed && (type === "all" || type === "page" || type === "selection")) {
     figma.closePlugin()
   }
 }
@@ -152,7 +154,7 @@ figma.ui.onmessage = async (msg) => {
 
   // Updates instances based on the received ticket data.
   if (msg.type === 'ticketDataSent' && checkFetchSuccess(msg.data)) {
-    console.log("Ticket data:", msg.data)
+    // console.log("Ticket data:", msg.data)
     var nodeIds = msg.nodeIds
     var nodes = nodeIds.map(id => figma.getNodeById(id) as InstanceNode)
     await updateTickets(nodes, msg)
@@ -196,6 +198,7 @@ async function getAuthorizationInfo(key: string, savedPublic = false) {
  */
 function requestUpdateForTickets(subset) {
   let nodes
+  let isFailed = false
   // All in document
   if (subset == "all") {
     nodes = DOCUMENT_NODE.findAllWithCriteria({
@@ -204,8 +207,7 @@ function requestUpdateForTickets(subset) {
     nodes = nodes.filter(node => node.name === COMPONENT_SET_NAME);
     if (nodes.length == 0) {
       figma.notify(`No instances named '${COMPONENT_SET_NAME}' found in document.`)
-      let isFailed = true
-      return isFailed
+      isFailed = true
     } else {
       getDataForTickets(nodes)
     }
@@ -218,8 +220,7 @@ function requestUpdateForTickets(subset) {
     nodes = nodes.filter(node => node.name === COMPONENT_SET_NAME);
     if (nodes.length == 0) {
       figma.notify(`No instances named '${COMPONENT_SET_NAME}' found on page.`)
-      let isFailed = true
-      return isFailed
+      isFailed = true
     } else {
       getDataForTickets(nodes)
     }
@@ -229,10 +230,12 @@ function requestUpdateForTickets(subset) {
     nodes = figma.currentPage.selection
     if (nodes.length == 0) {
       figma.notify(`Nothing selected.`)
+      isFailed = true
     } else {
       getDataForTickets(nodes)
     }
   }
+  return isFailed
 }
 
 /**
@@ -330,7 +333,7 @@ async function updateTickets(ticketInstances: Array<InstanceNode>, msg, isCreate
 
     // Add the relaunch button
     ticketInstance.swapComponent(newVariant)
-    ticketInstance.setRelaunchData({ update: '' })
+    ticketInstance.setRelaunchData({ update_selection: '' })
   }
 
   // Notify about errors (missing text fields)
@@ -361,7 +364,7 @@ async function updateTickets(ticketInstances: Array<InstanceNode>, msg, isCreate
   }
 
   // If called via the relaunch button, close plugin after updating the tickets
-  if (figma.command === 'update_page' || figma.command === 'update_all') {
+  if (figma.command === 'update_page' || figma.command === 'update_all' || figma.command === 'update_selection') {
     figma.closePlugin(message)
   } else {
     figma.notify(message, { timeout: 2000 })

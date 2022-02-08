@@ -5,9 +5,10 @@ import './ui.css'
 
 import { Icon, Text, Title, Label, Button, Checkbox, Tip } from "react-figma-plugin-ds"
 import "react-figma-plugin-ds/figma-plugin-ds.css";
-import { getTicketDataFromJira, postLinkToIssue } from './fetch-data'
+import { getTicketDataFromJira, postLinkToIssue, testAuthentication } from './fetch-data'
 
 import { Buffer } from 'buffer';
+import { auth } from 'firebase'
 
 declare function require(path: string): any
 
@@ -29,6 +30,7 @@ function App() {
   const [usernameError, setUsernameError] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [issueIdError, setIssueIdError] = useState("")
+  const [generalError, setGeneralError] = useState("")
 
   const [showAuth, setShowAuth] = useState(true)
   const [showAuthForOnboarding, setShowAuthForOnboarding] = useState(true)
@@ -67,8 +69,6 @@ function App() {
       setPassword(password)
       setIssueId(issueId.replace(/[1-9]*$/, ""))
       setCreateLink(createLink)
-
-      console.log("SET CREATE LINK", createLink)
 
       var notAllAuthDataEntered = companyName === "" || username === "" || password === ""
       setShowAuth(notAllAuthDataEntered)
@@ -126,7 +126,6 @@ function App() {
 
   // Toggle between wether a link should be created in the Jira ticket
   const toggleCreateLink = () => {
-    console.log("TOGGLE", createLink)
     setCreateLink(!createLink)
     parent.postMessage({ pluginMessage: { type: 'authorization-detail-changed', key: CREATE_LINK_KEY, data: !createLink, save_public: false } }, '*')
   }
@@ -155,6 +154,7 @@ function App() {
     setCompanyNameError("")
     setUsernameError("")
     setPasswordError("")
+    setGeneralError("")
 
     var allCredentialsProvided = true
     if (companyName === "") {
@@ -170,7 +170,56 @@ function App() {
       allCredentialsProvided = false
     }
 
-    if (allCredentialsProvided) {
+    if (allCredentialsProvided) checkAuthenticationAndSaveData(username, password, companyName, projectId)
+  }
+
+  // Hit enter to create a new ticket
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      onCreateTicket()
+    }
+  }
+
+
+  // Checks if user has entered the correct credentials
+  async function checkAuthenticationAndSaveData(username, password, companyName, projectId) {
+    const basicAuth = Buffer.from(username + ':' + password).toString('base64')
+    let authData = await testAuthentication(basicAuth, companyName)
+
+    var isSuccess = false
+    // Can this even happen?
+    if (!authData) {
+      setGeneralError("Authentication failed.")
+      throw new Error("Something went wrong, no data received.")
+    }
+    // If it has self, it was successfull
+    else if (authData.self) {
+      isSuccess = true
+    }
+    else if (authData.message) {
+      // Wrong credentials
+      if (authData.message === "Request failed with status code 401") {
+        setUsernameError("E-mail or API token invalid.")
+        setPasswordError("E-mail or API token invalid.")
+      } else if (authData.message === "Request failed with status code 404") {
+        setCompanyNameError("Company domain name does not exist.")
+      } 
+      // No internet
+      else if (authData.message === "Failed to fetch") {
+        setGeneralError("Authentication failed. There seems to be no connection to the server.")
+        throw new Error(authData.message)
+      } else {
+        setGeneralError("Authentication failed. There seems to be no connection to Jira.")
+        throw new Error(authData.message)
+      }
+    }
+    else {
+      setGeneralError("Authentication failed.")
+      throw new Error("Something went wrong. " + JSON.stringify(authData))
+    }
+
+    // Save data is authentication successfull
+    if (isSuccess) {
       setCompanyName(companyName)
       setProjectId(projectId)
       setUsername(username)
@@ -187,12 +236,7 @@ function App() {
     }
   }
 
-  // Hit enter to create a new ticket
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
-      onCreateTicket()
-    }
-  }
+
 
   // UI - changes between authorisation view and main view
   return <>
@@ -253,7 +297,7 @@ function App() {
               {companyNameError.length > 0 &&
                 <Text className="error-text">{companyNameError}</Text>
               }
-              <Label>www.<b>company-name</b>.atlassian.net</Label>
+              <div className='type black3'>www.<b>company-name</b>.atlassian.net</div>
             </div>
           </div>
           <div className='row'>
@@ -264,15 +308,21 @@ function App() {
               <div className="input">
                 <input ref={projectIdInput} type="input" className="input__field" defaultValue={projectId} placeholder="e.g. dKmrEsaDQNNKeXHISLF6l7E" />
               </div>
-              <div className='type' style={{ color: "#B3B3B3" }}>
+              <Text></Text>
+              <div className='type black3'>
                 Allows you to link new Figma components in the respective Jira tickets.
                 <ol style={{ paddingLeft: 20 }}>
                   <li>Create a shareable project link.</li>
-                  <li>The ID is part of the link. <br />figma.com/file/<b>##ID##</b>/project-name</li>
+                  <li>The ID is part of the link. <br />figma.com/file/<b>--ID--</b>/project-name</li>
                 </ol>
               </div>
             </div>
           </div>
+        </div>
+        <div className='sticky'>
+          {generalError.length > 0 &&
+            <Text className="error-text padding-lr-8">{generalError}</Text>
+          }
           <div className='horizontal align-right padding-small'>
             {showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Save</Button>}
             {!showAuthForOnboarding && <Button className="" isSecondary id="create-component" onClick={function _() { switchView() }}>Back</Button>}
