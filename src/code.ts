@@ -5,18 +5,22 @@ const DOCUMENT_NODE = figma.currentPage.parent
 DOCUMENT_NODE.setRelaunchData({ update_page: '', update_all: '' })
 
 const WINDOW_WIDTH = 250
-const WINDOW_HEIGHT_BIG = 466
-const WINDOW_HEIGHT_SMALL = 276
+const WINDOW_HEIGHT_BIG = 670
+const WINDOW_HEIGHT_SMALL = 308
 
 const COMPANY_NAME_KEY: string = "COMPANY_NAME"
+const PROJECT_ID_KEY: string = "PROJECT_ID"
 const USERNAME_KEY: string = "USERNAME"
 const PASSWORD_KEY: string = "PASSWORD"
 const ISSUE_ID_KEY: string = "ISSUE_ID"
+const CREATE_LINK_KEY: string = "CREATE_LINK"
 
-var company_name: string
+var company_name: string // Saved publicly with setPluginData
+var project_id: string // Saved publicly with setPluginData
 var username: string
 var password: string
 var issueId: string
+var createLink
 
 const FONT_REG = { family: "Work Sans", style: "Regular" }
 const FONT_MED = { family: "Work Sans", style: "Medium" }
@@ -86,11 +90,14 @@ async function updateWithoutUI(type) {
 
 // Send the stored authorization data to the UI
 async function sendData() {
-  company_name = await getAuthorizationInfo(COMPANY_NAME_KEY)
-  username = await getAuthorizationInfo(USERNAME_KEY)
-  password = await getAuthorizationInfo(PASSWORD_KEY)
-  issueId = await getAuthorizationInfo(ISSUE_ID_KEY)
-  figma.ui.postMessage({ company_name: company_name, username: username, password: password, issueId: issueId, type: 'setAuthorizationVariables' })
+  company_name = await getAuthorizationInfo(COMPANY_NAME_KEY, true)
+  project_id = await getAuthorizationInfo(PROJECT_ID_KEY, true)
+  username = await getAuthorizationInfo(USERNAME_KEY, false)
+  password = await getAuthorizationInfo(PASSWORD_KEY, false)
+  issueId = await getAuthorizationInfo(ISSUE_ID_KEY, false)
+  createLink = await getAuthorizationInfo(CREATE_LINK_KEY, false)
+  if (createLink === "") createLink = true
+  figma.ui.postMessage({ company_name: company_name, project_id: project_id, username: username, password: password, issueId: issueId, createLink: createLink, type: 'setAuthorizationVariables' })
 }
 
 // All the functions that can be started from the UI
@@ -103,7 +110,13 @@ figma.ui.onmessage = async (msg) => {
 
   // Called to create a new instance of a component (based on the issueId entered in the UI)
   if (msg.type === 'create-new-ticket' && checkFetchSuccess(msg.data)) {
-    await createTicketInstance(msg)
+    let ticketInstance = await createTicketInstance(msg)
+    if (msg.createLink && msg.data[0].key && project_id != "") {
+      let projectName = encodeURIComponent(figma.root.name)
+      let nodeId = encodeURIComponent(ticketInstance.id)
+      let link = `https://www.figma.com/file/${project_id}/${projectName}?node-id=${nodeId}`
+      figma.ui.postMessage({ issueId: msg.issueIds[0], link: link, type: 'post-link-to-jira-issue' })
+    }
   }
 
   // Called to get all Jira Ticker Header instances and update them one by one. 
@@ -123,7 +136,7 @@ figma.ui.onmessage = async (msg) => {
 
   // Save new authorization info
   if (msg.type === 'authorization-detail-changed') {
-    setAuthorizationInfo(msg.key, msg.data)
+    setAuthorizationInfo(msg.key, msg.data, msg.save_public)
   }
 
   // Resize the UI
@@ -147,14 +160,32 @@ figma.ui.onmessage = async (msg) => {
 }
 
 // Saves authorization details in client storage
-async function setAuthorizationInfo(key: string, value: string) {
-  await figma.clientStorage.setAsync(key, value)
+async function setAuthorizationInfo(key: string, value: string, savePublic = false) {
+  if (savePublic) {
+    DOCUMENT_NODE.setPluginData(key, value)
+  } else {
+    await figma.clientStorage.setAsync(key, value)
+  }
+
+  // Make sure that variable gets updated
+  if (key === COMPANY_NAME_KEY) company_name = value
+  else if (key === PROJECT_ID_KEY) project_id = value
+  else if (key === USERNAME_KEY) username = value
+  else if (key === PASSWORD_KEY) password = value
+  else if (key === ISSUE_ID_KEY) issueId = value
+  else if (key === CREATE_LINK_KEY) createLink = value
 }
 
 // Get authorization details from client storage
-async function getAuthorizationInfo(key: string) {
-  var valueSaved = await figma.clientStorage.getAsync(key)
-  if (!valueSaved) valueSaved = ""
+async function getAuthorizationInfo(key: string, savedPublic = false) {
+  var valueSaved
+  if (savedPublic) {
+    valueSaved = DOCUMENT_NODE.getPluginData(key)
+  } else {
+    valueSaved = await figma.clientStorage.getAsync(key)
+  }
+
+  if (!valueSaved && valueSaved != false) valueSaved = ""
   return valueSaved
 }
 
@@ -167,7 +198,6 @@ function requestUpdateForTickets(subset) {
   let nodes
   // All in document
   if (subset == "all") {
-    console.log(1)
     nodes = DOCUMENT_NODE.findAllWithCriteria({
       types: ['INSTANCE']
     })
@@ -288,9 +318,8 @@ async function updateTickets(ticketInstances: Array<InstanceNode>, msg, isCreate
     let assigneeTxt = ticketInstance.findOne(n => n.type === "TEXT" && n.name === ASSIGNEE_NAME) as TextNode
     if (assigneeTxt) {
       await figma.loadFontAsync(assigneeTxt.fontName as FontName)
-      if(ticketData.fields.assignee) {
+      if (ticketData.fields.assignee) {
         let assignee = getAssignee(ticketData)
-        console.log("assignee", assignee)
         assigneeTxt.characters = assignee
       } else {
         assigneeTxt.characters = "Not assigned"
@@ -350,7 +379,7 @@ async function createTicketInstance(msg) {
   let ticketInstance = ticketVariant.createInstance()
   ticketInstance.x = (figma.viewport.center.x - ticketInstance.width / 2) + nextTicketOffset
   ticketInstance.y = (figma.viewport.center.y - ticketInstance.height / 2) + nextTicketOffset
-  nextTicketOffset = nextTicketOffset + 10 % 70
+  nextTicketOffset = (nextTicketOffset + 10) % 70
   figma.currentPage.selection = [ticketInstance]
 
   let ticketData = checkTicketDataReponse(msg.data[0], msg.issueIds[0])
@@ -366,6 +395,7 @@ async function createTicketInstance(msg) {
     figma.notify("Could not find text element named '" + ISSUE_ID_NAME + "'.")
   }
 
+  return ticketInstance
 }
 
 /**
@@ -540,7 +570,7 @@ function checkFetchSuccess(data) {
   }
   // Wrong company name
   else if (data[0].errorMessage == "Site temporarily unavailable") {
-    figma.notify("Company domain name does not exist. See 'Authorization' settings.")
+    figma.notify("Company domain name does not exist. See 'Project Settings'.")
     throw new Error(data[0].errorMessage)
   }
   // Wrong password

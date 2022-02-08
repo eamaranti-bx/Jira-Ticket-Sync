@@ -4,6 +4,10 @@
     grid-column-gap: 8px;
 }
 
+.float-left {
+    float: left;
+}
+
 .vertical {
     grid-auto-flow: column;
 }
