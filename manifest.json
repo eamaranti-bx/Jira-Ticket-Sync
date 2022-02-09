@@ -1,6 +1,6 @@
 {
     "name": "Jira Ticket Sync",
-    "id": "1068470422233765407",
+    "id": "1073234730618485706",
     "api": "1.0.0",
     "main": "dist/code.js",
     "ui": "dist/ui.html",

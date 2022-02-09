@@ -43,7 +43,7 @@ const ISSUE_TITLE_NAME = "Ticket Title"
 const ISSUE_CHANGE_DATE_NAME = "Date of Status Change"
 const ASSIGNEE_NAME = "Assignee"
 
-const COMPONENT_SET_NAME = "Jira Ticket"
+const COMPONENT_SET_NAME = "Jira Ticket Header"
 const COMPONENT_SET_PROPERTY_NAME = "Status="
 const VARIANT_NAME_1 = "To Do"
 const VARIANT_COLOR_1 = hexToRgb('EEEEEE')

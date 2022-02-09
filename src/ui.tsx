@@ -83,7 +83,7 @@ function App() {
       let issueId = event.data.pluginMessage.issueId
       let basicAuth: string = Buffer.from(username + ':' + password).toString('base64')
       let response = await postLinkToIssue(issueId, link, basicAuth, companyName)
-      if (!response.self) parent.postMessage({ pluginMessage: { type: 'create-visual-bell', message: "Could not add component link to Jira ticket." } }, '*')
+      if (!response.self) parent.postMessage({ pluginMessage: { type: 'create-visual-bell', message: `Could not add "Jira Ticket Header" link to Jira ticket.` } }, '*')
     }
   }
 
@@ -303,14 +303,14 @@ function App() {
           <div className='row'>
             <div>
               <div>
-                <Text>Project ID <i>(optional)</i></Text>
+                <Text>Figma File ID <i>(optional)</i></Text>
               </div>
               <div className="input">
                 <input ref={projectIdInput} type="input" className="input__field" defaultValue={projectId} placeholder="e.g. dKmrEsaDQNNKeXHISLF6l7E" />
               </div>
               <Text></Text>
               <div className='type black3'>
-                Allows you to link new Figma components in the respective Jira tickets.
+                Allows you to link "Jira Ticket Headers" in the respective Jira tickets.
                 <ol style={{ paddingLeft: 20 }}>
                   <li>Create a shareable project link.</li>
                   <li>The ID is part of the link. <br />figma.com/file/<b>--ID--</b>/project-name</li>
@@ -352,7 +352,7 @@ function App() {
           </div>
           <div className="checkbox">
             <input id="createLinkCheckbox" type="checkbox" className="checkbox__box" onChange={toggleCreateLink} checked={createLink && projectId != ""} disabled={projectId == ""} />
-            <label htmlFor="createLinkCheckbox" className="checkbox__label">Link new component in Jira ticket</label>
+            <label htmlFor="createLinkCheckbox" className="checkbox__label">Link in Jira ticket</label>
           </div>
         </div>
         <div className='vertical padding-small'>
