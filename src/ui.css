@@ -92,3 +92,18 @@ button {
     bottom: 0;
     border-top: 1px solid var(--color-border, rgba(0, 0, 0, .1));
 }
+
+.overlay {
+    z-index: 10;
+    position: fixed;
+    display: flex;
+    grid-auto-flow: row;
+    grid-column-gap: 8px;
+    padding: 12 16;
+    text-align: center;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    background-color: rgb(237, 245, 250);
+}

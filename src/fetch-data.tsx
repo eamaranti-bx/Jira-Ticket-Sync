@@ -16,7 +16,6 @@ const FIREBASE_URL_TEST_AUTHENTICATION = `${BASELINK}/testAuthentication`
  * @returns Array of ticket JSON data
  */
 export async function getTicketDataFromJira(issueIds, basicAuth, companyName) {
-
   var jsonArray
   var config = {
     method: 'POST',

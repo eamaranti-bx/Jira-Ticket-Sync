@@ -30,6 +30,7 @@
     "react-dev-utils": "^12.0.0",
     "react-dom": "^17.0.2",
     "react-figma-plugin-ds": "^2.3.0",
+    "react-spinners": "^0.11.0",
     "reactstrap": "^9.0.1",
     "sass": "^1.49.4"
   }

@@ -3,12 +3,12 @@ import { useState, useRef } from 'react'
 import * as ReactDOM from 'react-dom'
 import './ui.css'
 
-import { Icon, Text, Title, Label, Button, Checkbox, Tip } from "react-figma-plugin-ds"
-import "react-figma-plugin-ds/figma-plugin-ds.css";
+import { Icon, Text, Title, Label, Button, Tip } from "react-figma-plugin-ds"
+import "react-figma-plugin-ds/figma-plugin-ds.css"
 import { getTicketDataFromJira, postLinkToIssue, testAuthentication } from './fetch-data'
 
-import { Buffer } from 'buffer';
-import { auth } from 'firebase'
+import { Buffer } from 'buffer'
+import PulseLoader from "react-spinners/PulseLoader"
 
 declare function require(path: string): any
 
@@ -19,23 +19,30 @@ const PASSWORD_KEY = "PASSWORD"
 const ISSUE_ID_KEY = "ISSUE_ID"
 const CREATE_LINK_KEY = "CREATE_LINK"
 
-function App() {
+export function App() {
+  // Input fields
   const [companyName, setCompanyName] = useState("")
   const [projectId, setProjectId] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [issueId, setIssueId] = useState("")
 
+  // Errors
   const [companyNameError, setCompanyNameError] = useState("")
   const [usernameError, setUsernameError] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [issueIdError, setIssueIdError] = useState("")
   const [generalError, setGeneralError] = useState("")
 
+  // Views
   const [showAuth, setShowAuth] = useState(true)
   const [showAuthForOnboarding, setShowAuthForOnboarding] = useState(true)
   const [showInput, setShowInput] = useState(false)
   const [createLink, setCreateLink] = useState(true)
+
+  // Loader
+  const [ticketDataLoader, setTicketDataLoader] = useState(false)
+  const [saveAuthDetailsLoader, setSaveAuthDetailsLoader] = useState(false)
 
   const companyNameInput = useRef(null)
   const projectIdInput = useRef(null)
@@ -50,7 +57,9 @@ function App() {
       var nodeIds = event.data.pluginMessage.nodeIds
 
       let basicAuth: string = Buffer.from(username + ':' + password).toString('base64')
+      setTicketDataLoader(true)
       var ticketDataArray = await getTicketDataFromJira(issueIds, basicAuth, companyName)
+      setTicketDataLoader(false)
       parent.postMessage({ pluginMessage: { issueIds: issueIds, nodeIds: nodeIds, data: ticketDataArray, type: 'ticketDataSent' } }, '*')
     }
 
@@ -94,7 +103,9 @@ function App() {
     } else {
       setIssueIdError("")
       const basicAuth = Buffer.from(username + ':' + password).toString('base64')
+      setTicketDataLoader(true)
       var ticketDataArray = await getTicketDataFromJira([issueId], basicAuth, companyName)
+      setTicketDataLoader(false)
       parent.postMessage({ pluginMessage: { type: 'create-new-ticket', data: ticketDataArray, issueIds: [issueId], createLink: createLink } }, '*')
       setIssueId(issueId.replace(/[1-9]*$/, ""))
     }
@@ -184,7 +195,9 @@ function App() {
   // Checks if user has entered the correct credentials
   async function checkAuthenticationAndSaveData(username, password, companyName, projectId) {
     const basicAuth = Buffer.from(username + ':' + password).toString('base64')
+    setSaveAuthDetailsLoader(true)
     let authData = await testAuthentication(basicAuth, companyName)
+    setSaveAuthDetailsLoader(false)
 
     var isSuccess = false
     // Can this even happen?
@@ -203,7 +216,7 @@ function App() {
         setPasswordError("E-mail or API token invalid.")
       } else if (authData.message === "Request failed with status code 404") {
         setCompanyNameError("Company domain name does not exist.")
-      } 
+      }
       // No internet
       else if (authData.message === "Failed to fetch") {
         setGeneralError("Authentication failed. There seems to be no connection to the server.")
@@ -324,15 +337,32 @@ function App() {
             <Text className="error-text padding-lr-8">{generalError}</Text>
           }
           <div className='horizontal align-right padding-small'>
-            {showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Save</Button>}
+            {showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>
+              {saveAuthDetailsLoader && <div>
+                <PulseLoader color={"#fff"} loading={true} size={4} margin={'2'} />
+                &nbsp; Saving
+              </div>}
+              {!saveAuthDetailsLoader && <div>Save</div>}
+            </Button>}
             {!showAuthForOnboarding && <Button className="" isSecondary id="create-component" onClick={function _() { switchView() }}>Back</Button>}
-            {!showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>Save Changes</Button>}
+            {!showAuthForOnboarding && <Button className="" id="create-component" onClick={function _() { onSaveAuthDetails() }}>
+              {saveAuthDetailsLoader && <div>
+                <PulseLoader color={"#fff"} loading={true} size={4} margin={'2'} />
+                &nbsp; Saving Changes
+              </div>}
+              {!saveAuthDetailsLoader && <div>Save Changes</div>}
+            </Button>}
           </div>
         </div>
       </>
       :
       // Main view
       <div>
+        {ticketDataLoader &&
+          <div className='divider overlay'>
+            <div style={{ marginTop: 4 }}><PulseLoader color={"#000"} loading={true} size={4} margin={'2'} /> </div>
+            <div className='type'>&nbsp; Loading ticket data...</div>
+          </div>}
         <div className='vertical padding-small divider'>
           <div className='section-title-with-icon'>
             <Title level="h2" size="" weight="bold">Add</Title>
@@ -349,6 +379,7 @@ function App() {
               }
             </div>
             <Button className="" id="create-new-ticket" onClick={onCreateTicket}>Add Ticket</Button>
+
           </div>
           <div className="checkbox">
             <input id="createLinkCheckbox" type="checkbox" className="checkbox__box" onChange={toggleCreateLink} checked={createLink && projectId != ""} disabled={projectId == ""} />
@@ -359,8 +390,8 @@ function App() {
           <Title level="h2" size="" weight="bold">Update</Title>
           <div className='padding-small'>
             <Button className="margin-small" isSecondary id="update-selected" onClick={onUpdateSelected}>Update Selected</Button>
-            <Button className="margin-small" isSecondary id="update-page" onClick={onUpdateAll}>Update Page</Button>
-            <Button className="margin-small" isSecondary id="update-all" onClick={onUpdateAll}>Update All in Document</Button>
+            <Button className="margin-small" isSecondary id="update-page" onClick={onUpdateAll}>Update All on Page</Button>
+            <Button className="margin-small" isSecondary id="update-all" onClick={onUpdateAll}>Update All in File</Button>
             {/* <Button className="margin-small" isSecondary id="create-component" onClick={onCreateComponent}>Create new</Button> */}
           </div>
         </div>

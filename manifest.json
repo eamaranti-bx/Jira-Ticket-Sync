@@ -8,6 +8,6 @@
     "relaunchButtons": [
         { "command": "update_selection", "name": "Update Selected Ticket(s)", "multipleSelection": true },
         { "command": "update_page", "name": "Update Tickets on Page", "multipleSelection": false },
-        { "command": "update_all", "name": "Update All Tickets", "multipleSelection": false }
+        { "command": "update_all", "name": "Update Tickets in File", "multipleSelection": false }
     ]
 }
